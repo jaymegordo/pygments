@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.python
     ~~~~~~~~~~~~~~~~~~~~~~
@@ -10,12 +11,12 @@
 
 import re
 
-from pygments.lexer import Lexer, RegexLexer, include, bygroups, using, \
-    default, words, combined, do_insertions
-from pygments.util import get_bool_opt, shebang_matches
-from pygments.token import Text, Comment, Operator, Keyword, Name, String, \
-    Number, Punctuation, Generic, Other, Error
 from pygments import unistring as uni
+from pygments.lexer import (Lexer, RegexLexer, bygroups, combined, default,
+                            do_insertions, include, using, words)
+from pygments.token import (Comment, Error, Generic, Keyword, Name, Number,
+                            Operator, Other, Punctuation, String, Text)
+from pygments.util import get_bool_opt, shebang_matches
 
 __all__ = ['PythonLexer', 'PythonConsoleLexer', 'PythonTracebackLexer',
            'Python2Lexer', 'Python2TracebackLexer',
@@ -63,6 +64,7 @@ class PythonLexer(RegexLexer):
     flags = re.MULTILINE | re.UNICODE
 
     uni_name = "[%s][%s]*" % (uni.xid_start, uni.xid_continue)
+    alpha_word = r'[a-zA-Z]+\w*'
 
     def innerstring_rules(ttype):
         return [
@@ -101,6 +103,7 @@ class PythonLexer(RegexLexer):
     tokens = {
         'root': [
             (r'\n', Text),
+            (r'\(', Other.Parens, 'parens'),
             (r'^(\s*)([rRuUbB]{,2})("""(?:.|\n)*?""")',
              bygroups(Text, String.Affix, String.Doc)),
             (r"^(\s*)([rRuUbB]{,2})('''(?:.|\n)*?''')",
@@ -109,29 +112,39 @@ class PythonLexer(RegexLexer):
             (r'#.*$', Comment.Single),
             (r'\\\n', Text),
             (r'\\', Text),
+            (r'(lambda)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text),
+             'lambda'),  # highlight lambda function args
+
+            (r'(def)((?:\s|\\\s)+)', bygroups(Name.FunctionDef, Text), 'funcname'),
             include('keywords'),
-            (r'(def)((?:\s|\\\s)+)', bygroups(Keyword, Text), 'funcname'),
-            (r'(class)((?:\s|\\\s)+)', bygroups(Keyword, Text), 'classname'),
-            (r'(from)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text),
-             'fromimport'),
-            (r'(import)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text),
-             'import'),
+            (r'(class)((?:\s|\\\s)+)', bygroups(Name.ClassDef, Text), 'classname'),
+            (r'(from)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text), 'fromimport'),
+            (r'(import)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text), 'import'),
             include('expr'),
+        ],
+        'parens': [
+            # match any word followed by any num spaces then equals sign but not two == signs
+            (r'\w+(?=\s*=)(?!\s*[=]{2,})', Other.FunctionArg),
+            (r'\(', Other.Parens, '#push'),  # enter parens state again
+            (r'\)', Other.Parens, '#pop'),  # exit parens state
+            (r'(lambda)((?:\s|\\\s)+)',
+             bygroups(Keyword.Namespace, Text), 'lambda'),  # NOTE not dry
+            (r'#.*$', Comment.Single),
+            (r'[()]', Other.Parens),  # () these are the actual parens
+            include('expr'),  # also check exprs inside parens state
+            # need this to not drop out of state on newline
+            (r'[^()]', Other.Parens),
         ],
         'expr': [
             # raw f-strings
             ('(?i)(rf|fr)(""")',
-             bygroups(String.Affix, String.Double),
-             combined('rfstringescape', 'tdqf')),
+             bygroups(String.Affix, String.Double), 'tdqf'),
             ("(?i)(rf|fr)(''')",
-             bygroups(String.Affix, String.Single),
-             combined('rfstringescape', 'tsqf')),
+             bygroups(String.Affix, String.Single), 'tsqf'),
             ('(?i)(rf|fr)(")',
-             bygroups(String.Affix, String.Double),
-             combined('rfstringescape', 'dqf')),
+             bygroups(String.Affix, String.Double), 'dqf'),
             ("(?i)(rf|fr)(')",
-             bygroups(String.Affix, String.Single),
-             combined('rfstringescape', 'sqf')),
+             bygroups(String.Affix, String.Single), 'sqf'),
             # non-raw f-strings
             ('([fF])(""")', bygroups(String.Affix, String.Double),
              combined('fstringescape', 'tdqf')),
@@ -160,7 +173,6 @@ class PythonLexer(RegexLexer):
             ("([uUbB]?)(')", bygroups(String.Affix, String.Single),
              combined('stringescape', 'sqs')),
             (r'[^\S\n]+', Text),
-            include('numbers'),
             (r'!=|==|<<|>>|:=|[-~+/*%=<>&^|.]', Operator),
             (r'[]{}:(),;[]', Punctuation),
             (r'(in|is|and|or|not)\b', Operator.Word),
@@ -169,6 +181,7 @@ class PythonLexer(RegexLexer):
             include('magicfuncs'),
             include('magicvars'),
             include('name'),
+            include('numbers'),
         ],
         'expr-inside-fstring': [
             (r'[{([]', Punctuation, 'expr-inside-fstring-inner'),
@@ -180,9 +193,13 @@ class PythonLexer(RegexLexer):
             # we'll catch the remaining '}' in the outer scope
             (r'(=\s*)?'         # debug (https://bugs.python.org/issue36817)
              r'(\![sraf])?'     # conversion
-             r':', String.Interpol, '#pop'),
+             r':', String.Affix, 'expr-inside-fstring-numformat'),
             (r'\s+', Text),  # allow new lines
             include('expr'),
+        ],
+        'expr-inside-fstring-numformat': [
+            # any char up to the closing }
+            (r'[^:}]*', String.FstringFormat, '#pop'),
         ],
         'expr-inside-fstring-inner': [
             (r'[{([]', Punctuation, 'expr-inside-fstring-inner'),
@@ -201,13 +218,17 @@ class PythonLexer(RegexLexer):
         'keywords': [
             (words((
                 'assert', 'async', 'await', 'break', 'continue', 'del', 'elif',
-                'else', 'except', 'finally', 'for', 'global', 'if', 'lambda',
+                'else', 'except', 'finally', 'for', 'in', 'global', 'if', 'lambda',
                 'pass', 'raise', 'nonlocal', 'return', 'try', 'while', 'yield',
                 'yield from', 'as', 'with'), suffix=r'\b'),
              Keyword),
             (words(('True', 'False', 'None'), suffix=r'\b'), Keyword.Constant),
         ],
         'builtins': [
+            (words((
+                'dict', 'list', 'set', 'int', 'float', 'bool', 'chr', 'filter',
+                'slice', 'type', 'isinstance', 'issubclass', 'super', 'object', 'str'), prefix=r'(?<!\.)', suffix=r'\b'),
+             Name.Builtin.Special),
             (words((
                 '__import__', 'abs', 'all', 'any', 'bin', 'bool', 'bytearray',
                 'bytes', 'chr', 'classmethod', 'compile', 'complex',
@@ -291,17 +312,55 @@ class PythonLexer(RegexLexer):
             (r'\d(?:_?\d)*', Number.Integer),
         ],
         'name': [
+            (r'\w+(?=\()', Name.FunctionCall),
             (r'@' + uni_name, Name.Decorator),
             (r'@', Operator),  # new matrix multiplication operator
             (uni_name, Name),
         ],
         'funcname': [
+            # include('funcargs'),
             include('magicfuncs'),
-            (uni_name, Name.Function, '#pop'),
+            (alpha_word + r'(?=\()', Name.Function),
+            # (r'\(', Other.Parens),
+            (r'\(', Other.Nothing, 'funcargs'),
+            # (uni_name, Name.Function),
             default('#pop'),
         ],
+        'funcargs': [
+            include('builtins'),
+            include('numbers'),
+            include('expr-keywords'),
+            (r'\(', Other.Parens, 'parens'),  # could have parens inside funcargs? not sure if needed
+            # include('expr'),
+            (r':', Punctuation, 'typehint'),
+            (r'!=|==|<<|>>|:=|[-~+/*%=<>&^|.]', Operator),
+            (r'[]{},;[]', Punctuation),  # :
+            (r'\s', Text),
+            # (r'\w+:', Other.FunctionArg)
+            (r'(?<!=)[a-zA-Z]+\w*(?=[,\s*=):])+', Other.FunctionArg),
+            (r'\w+', Text),
+            # cant use full expr, but need to catch single and double
+            (r"'", String.Single, 'sqs'),
+            (r'"', String.Double, 'dqs'),
+            (r'\)', Other.Nothing, '#pop'),  # exit func state
+        ],
+        'typehint': [
+            (r'[,=]', Punctuation, '#pop'),  # exit typehint state back to funcarg
+            (r'\)', Other.Parens, '#pop:2'),  # exit typehint AND funcarg
+            include('expr'),
+        ],
         'classname': [
-            (uni_name, Name.Class, '#pop'),
+            (alpha_word + r'(?=\s*[(:])', Name.Class),
+            (alpha_word, Name.Builtin.Pseudo),
+            # (uni_name, Name.Class),
+            (r'[):]', Other.Nothing, '#pop'),  # exit class state
+        ],
+        'lambda': [
+            # any word after lambda before :
+            (r'[a-zA-Z]\w*(?=[,\s*=:])', Other.FunctionArg),
+            include('numbers'),
+            (r'\:', Other.Nothing, '#pop'),  # exit lambda state
+            # default('#pop'),
         ],
         'import': [
             (r'(\s+)(as)(\s+)', bygroups(Text, Keyword, Text)),
@@ -319,12 +378,9 @@ class PythonLexer(RegexLexer):
             (uni_name, Name.Namespace),
             default('#pop'),
         ],
-        'rfstringescape': [
+        'fstringescape': [
             (r'\{\{', String.Escape),
             (r'\}\}', String.Escape),
-        ],
-        'fstringescape': [
-            include('rfstringescape'),
             include('stringescape'),
         ],
         'stringescape': [
@@ -352,8 +408,10 @@ class PythonLexer(RegexLexer):
         ],
         'sqs': [
             (r"'", String.Single, '#pop'),
+            # also highlight fstring style {} which dont have an f first
+            include('fstrings-single'),
             (r"\\\\|\\'|\\\n", String.Escape),  # included here for raw strings
-            include('strings-single')
+            include('strings-single'),
         ],
         'tdqf': [
             (r'"""', String.Double, '#pop'),
@@ -378,8 +436,7 @@ class PythonLexer(RegexLexer):
     }
 
     def analyse_text(text):
-        return shebang_matches(text, r'pythonw?(3(\.\d)?)?') or \
-            'import ' in text[:1000]
+        return shebang_matches(text, r'pythonw?(3(\.\d)?)?')
 
 
 Python3Lexer = PythonLexer
@@ -603,7 +660,8 @@ class Python2Lexer(RegexLexer):
     }
 
     def analyse_text(text):
-        return shebang_matches(text, r'pythonw?2(\.\d)?')
+        return shebang_matches(text, r'pythonw?2(\.\d)?') or \
+            'import ' in text[:1000]
 
 
 class PythonConsoleLexer(Lexer):
@@ -652,7 +710,9 @@ class PythonConsoleLexer(Lexer):
         tb = 0
         for match in line_re.finditer(text):
             line = match.group()
-            if line.startswith('>>> ') or line.startswith('... '):
+
+            # if docstring line starts with any of these, format it as a code line
+            if any(line.startswith(item) for item in ('>>> ', '... ', '    ')):
                 tb = 0
                 insertions.append((len(curcode),
                                    [(0, Generic.Prompt, line[:4])]))
@@ -845,14 +905,14 @@ class CythonLexer(RegexLexer):
         ],
         'builtins': [
             (words((
-                '__import__', 'abs', 'all', 'any', 'apply', 'basestring', 'bin', 'bint',
+                '__import__', 'abs', 'all', 'any', 'apply', 'basestring', 'bin',
                 'bool', 'buffer', 'bytearray', 'bytes', 'callable', 'chr',
                 'classmethod', 'cmp', 'coerce', 'compile', 'complex', 'delattr',
                 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'execfile', 'exit',
                 'file', 'filter', 'float', 'frozenset', 'getattr', 'globals',
                 'hasattr', 'hash', 'hex', 'id', 'input', 'int', 'intern', 'isinstance',
                 'issubclass', 'iter', 'len', 'list', 'locals', 'long', 'map', 'max',
-                'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'property', 'Py_ssize_t',
+                'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'property',
                 'range', 'raw_input', 'reduce', 'reload', 'repr', 'reversed',
                 'round', 'set', 'setattr', 'slice', 'sorted', 'staticmethod',
                 'str', 'sum', 'super', 'tuple', 'type', 'unichr', 'unicode', 'unsigned',
@@ -942,12 +1002,14 @@ class CythonLexer(RegexLexer):
         ],
         'dqs': [
             (r'"', String, '#pop'),
-            (r'\\\\|\\"|\\\n', String.Escape),  # included here again for raw strings
+            # included here again for raw strings
+            (r'\\\\|\\"|\\\n', String.Escape),
             include('strings')
         ],
         'sqs': [
             (r"'", String, '#pop'),
-            (r"\\\\|\\'|\\\n", String.Escape),  # included here again for raw strings
+            # included here again for raw strings
+            (r"\\\\|\\'|\\\n", String.Escape),
             include('strings')
         ],
         'tdqs': [
@@ -988,8 +1050,10 @@ class DgLexer(RegexLexer):
             (r'(?i)[+-]?[0-9]+e[+-]?\d+j?', Number.Float),
             (r'(?i)[+-]?[0-9]+j?', Number.Integer),
 
-            (r"(?i)(br|r?b?)'''", String, combined('stringescape', 'tsqs', 'string')),
-            (r'(?i)(br|r?b?)"""', String, combined('stringescape', 'tdqs', 'string')),
+            (r"(?i)(br|r?b?)'''", String, combined(
+                'stringescape', 'tsqs', 'string')),
+            (r'(?i)(br|r?b?)"""', String, combined(
+                'stringescape', 'tdqs', 'string')),
             (r"(?i)(br|r?b?)'", String, combined('stringescape', 'sqs', 'string')),
             (r'(?i)(br|r?b?)"', String, combined('stringescape', 'dqs', 'string')),
 
@@ -1002,7 +1066,7 @@ class DgLexer(RegexLexer):
                 'float', 'frozenset', 'int', 'list', 'list\'', 'memoryview', 'object',
                 'property', 'range', 'set', 'set\'', 'slice', 'staticmethod', 'str',
                 'super', 'tuple', 'tuple\'', 'type'),
-                   prefix=r'(?<!\.)', suffix=r'(?![\'\w])'),
+                prefix=r'(?<!\.)', suffix=r'(?![\'\w])'),
              Name.Builtin),
             (words((
                 '__import__', 'abs', 'all', 'any', 'bin', 'bind', 'chr', 'cmp', 'compile',
@@ -1013,7 +1077,7 @@ class DgLexer(RegexLexer):
                 'locals', 'map', 'max', 'min', 'next', 'oct', 'open', 'ord', 'pow',
                 'print', 'repr', 'reversed', 'round', 'setattr', 'scanl1?', 'snd',
                 'sorted', 'sum', 'tail', 'take', 'takewhile', 'vars', 'zip'),
-                   prefix=r'(?<!\.)', suffix=r'(?![\'\w])'),
+                prefix=r'(?<!\.)', suffix=r'(?![\'\w])'),
              Name.Builtin),
             (r"(?<!\.)(self|Ellipsis|NotImplemented|None|True|False)(?!['\w])",
              Name.Builtin.Pseudo),
@@ -1152,7 +1216,6 @@ class NumPyLexer(PythonLexer):
                 yield index, token, value
 
     def analyse_text(text):
-        ltext = text[:1000]
         return (shebang_matches(text, r'pythonw?(3(\.\d)?)?') or
-                'import ' in ltext) \
-            and ('import numpy' in ltext or 'from numpy import' in ltext)
+                'import ' in text[:1000]) \
+            and ('import numpy' in text or 'from numpy import' in text)
