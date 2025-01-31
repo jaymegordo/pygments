@@ -10,9 +10,9 @@
 """
 
 from pygments.style import Style
-from pygments.token import (STANDARD_TYPES, Comment, Error, Generic, Keyword,
-                            Literal, Name, Number, Operator, Other, String,
-                            Text, Token)
+from pygments.token import (Comment, Keyword,
+                            Name, Number, Other, String,
+                            Token)
 
 
 class JaymeStyle(Style):
