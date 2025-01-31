@@ -1,9 +1,0 @@
-'class'       Keyword
-' '           Text
-'Käse'        Name.Class
-':'           Punctuation
-'\n'          Text
-
-'    '        Text
-'pass'        Keyword
-'\n'          Text
