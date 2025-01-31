@@ -21,9 +21,9 @@ import pytest
 from tests.conftest import LexerSeparateTestItem
 
 
-def pytest_collect_file(parent, path):
-    if path.ext != '.output' and path.basename != 'conftest.py':
-        return LexerTestFile.from_parent(parent, fspath=path)
+def pytest_collect_file(parent, file_path):
+    if file_path.suffix != '.output' and file_path.name != 'conftest.py':
+        return LexerTestFile.from_parent(parent, path=file_path)
 
 
 class LexerTestFile(pytest.File):

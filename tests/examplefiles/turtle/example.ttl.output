@@ -68,6 +68,19 @@
 '.'           Punctuation
 '\n\n'        Text
 
+'_'           Name.Namespace
+':'           Punctuation
+'BlankNode1'  Name.Tag
+' '           Text
+'a'           Keyword.Type
+' '           Text
+'_'           Name.Namespace
+':'           Punctuation
+'BlankNode2'  Name.Tag
+' '           Text
+'.'           Punctuation
+'\n\n'        Text
+
 '<#doc1>'     Name.Variable
 ' '           Text
 'a'           Keyword.Type
@@ -88,7 +101,28 @@
 'Jones'       Literal.String
 '"'           Literal.String
 ';'           Punctuation
-' \n\t'       Text
+' \n    '     Text
+'dcterms'     Name.Namespace
+':'           Punctuation
+'description' Name.Tag
+' '           Text
+'"""'         Literal.String
+'Test stuff\nsingle line' Literal.String
+'"""'         Literal.String
+';'           Punctuation
+'\n    '      Text
+'dcterms'     Name.Namespace
+':'           Punctuation
+'identifier'  Name.Tag
+' '           Text
+"'''"         Literal.String
+'Single\nQuoted [multiline] string\n' Literal.String
+
+"'''"         Literal.String
+'@'           Operator
+'fr'          Generic.Emph
+';'           Punctuation
+'\n\t'        Text
 ':'           Punctuation
 'knows'       Name.Tag
 ' '           Text

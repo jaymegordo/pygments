@@ -7,8 +7,15 @@ PREFIX dc: <http://purl.org/dc/elements/1.1/>  # SPARQL-like syntax is OK
 
 <http://example.org/#spiderman> <http://www.perceive.net/schemas/relationship/enemyOf> <http://example.org/#green-goblin> .
 
+_:BlankNode1 a _:BlankNode2 .
+
 <#doc1> a <#document>;
 	dc:creator "Smith", "Jones"; 
+    dcterms:description """Test stuff
+single line""";
+    dcterms:identifier '''Single
+Quoted [multiline] string
+'''@fr;
 	:knows <http://getopenid.com/jsmith>;
 	dcterms:hasPart [ # A comment
 		dc:title "Some title", "Some other title";

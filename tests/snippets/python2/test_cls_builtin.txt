@@ -8,27 +8,27 @@ class TestClass():
 
 ---tokens---
 'class'       Keyword
-' '           Text
+' '           Text.Whitespace
 'TestClass'   Name.Class
 '('           Punctuation
 ')'           Punctuation
 ':'           Punctuation
-'\n'          Text
+'\n'          Text.Whitespace
 
 '    '        Text
 '@classmethod' Name.Decorator
-'\n'          Text
+'\n'          Text.Whitespace
 
 '    '        Text
 'def'         Keyword
-' '           Text
+' '           Text.Whitespace
 'hello'       Name.Function
 '('           Punctuation
 'cls'         Name.Builtin.Pseudo
 ')'           Punctuation
 ':'           Punctuation
-'\n'          Text
+'\n'          Text.Whitespace
 
 '        '    Text
 'pass'        Keyword
-'\n'          Text
+'\n'          Text.Whitespace

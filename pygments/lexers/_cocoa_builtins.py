@@ -5,9 +5,9 @@
     This file defines a set of types used across Cocoa frameworks from Apple.
     There is a list of @interfaces, @protocols and some other (structs, unions)
 
-    File may be also used as standalone generator for aboves.
+    File may be also used as standalone generator for above.
 
-    :copyright: Copyright 2006-2021 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2025 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':  # pragma: no cover
                 with open(headerFilePath, encoding='utf-8') as f:
                     content = f.read()
             except UnicodeDecodeError:
-                print("Decoding error for file: {0}".format(headerFilePath))
+                print(f"Decoding error for file: {headerFilePath}")
                 continue
                 
             res = re.findall(r'(?<=@interface )\w+', content)
